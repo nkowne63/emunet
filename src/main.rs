@@ -5,7 +5,7 @@ use async_openai::{
     Client,
 };
 
-use inquire::Text;
+use inquire::{Select, Text};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -13,51 +13,43 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let client = Client::new();
 
-    let request = CreateChatCompletionRequestArgs::default()
-        .max_tokens(512u16)
-        .model("gpt-3.5-turbo")
-        .messages([
-            ChatCompletionRequestMessageArgs::default()
-                .role(Role::System)
-                .content("You are a helpful assistant.")
-                .build()?,
+    let mut past_messages = vec![];
+
+    loop {
+        let user_message = Text::new("You: ").prompt()?;
+        past_messages.push(
             ChatCompletionRequestMessageArgs::default()
                 .role(Role::User)
-                .content("Who won the world series in 2020?")
+                .content(user_message)
                 .build()?,
+        );
+        let request = CreateChatCompletionRequestArgs::default()
+            .max_tokens(512u16)
+            .model("gpt-3.5-turbo")
+            .messages(past_messages.clone())
+            .build()?;
+        let response = client.chat().create(request).await?;
+        let text = match response.choices[0].message.content.clone() {
+            Some(text) => text,
+            None => {
+                println!("AI: No response found, try again.");
+                continue;
+            }
+        };
+        println!("AI: {:?}", text);
+        past_messages.push(
             ChatCompletionRequestMessageArgs::default()
                 .role(Role::Assistant)
-                .content("The Los Angeles Dodgers won the World Series in 2020.")
+                .content(text)
                 .build()?,
-            ChatCompletionRequestMessageArgs::default()
-                .role(Role::User)
-                .content("Where was it played?")
-                .build()?,
-        ])
-        .build()?;
-
-    let response = client.chat().create(request).await?;
-
-    println!("\nResponse:\n");
-    for choice in response.choices {
-        println!(
-            "{}: Role: {}  Content: {:?}",
-            choice.index, choice.message.role, choice.message.content
         );
-    }
+        let is_done = Select::new("Continue?", vec!["Yes", "No"]).prompt()?;
 
-    let name = Text::new("What is your name?").prompt();
-
-    match name {
-        Ok(name) => println!("Hello {}", name),
-        Err(_) => println!("An error happened when asking for your name, try again later."),
-    }
-
-    let name = Text::new("What is your name?").prompt();
-
-    match name {
-        Ok(name) => println!("2 > Hello {}", name),
-        Err(_) => println!("2 > An error happened when asking for your name, try again later."),
+        match is_done {
+            "Yes" => continue,
+            "No" => break,
+            _ => unreachable!(),
+        }
     }
 
     Ok(())
