@@ -5,6 +5,8 @@ use async_openai::{
     Client,
 };
 
+use inquire::Text;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     dotenvy::dotenv()?;
@@ -42,6 +44,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
             "{}: Role: {}  Content: {:?}",
             choice.index, choice.message.role, choice.message.content
         );
+    }
+
+    let name = Text::new("What is your name?").prompt();
+
+    match name {
+        Ok(name) => println!("Hello {}", name),
+        Err(_) => println!("An error happened when asking for your name, try again later."),
+    }
+
+    let name = Text::new("What is your name?").prompt();
+
+    match name {
+        Ok(name) => println!("2 > Hello {}", name),
+        Err(_) => println!("2 > An error happened when asking for your name, try again later."),
     }
 
     Ok(())
