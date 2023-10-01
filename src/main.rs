@@ -25,7 +25,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         );
         let request = CreateChatCompletionRequestArgs::default()
             .max_tokens(512u16)
-            .model("gpt-3.5-turbo")
+            .model("gpt-4")
             .messages(past_messages.clone())
             .build()?;
         let response = client.chat().create(request).await?;
