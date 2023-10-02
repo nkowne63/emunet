@@ -7,9 +7,20 @@ use async_openai::{
 
 use inquire::{Select, Text};
 
+use qdrant_client::prelude::*;
+use qdrant_client::qdrant::vectors_config::Config;
+use qdrant_client::qdrant::{
+    Condition, CreateCollection, Filter, SearchPoints, VectorParams, VectorsConfig,
+};
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     dotenvy::dotenv()?;
+
+    let client = QdrantClient::from_url("http://localhost:6334").build()?;
+
+    let collections_list = client.list_collections().await?;
+    dbg!(collections_list);
 
     let client = Client::new();
 
