@@ -8,7 +8,7 @@ use async_openai::{
     Client,
 };
 
-use qdrant_client::prelude::*;
+use qdrant_client::prelude::QdrantClient;
 
 use reedline_repl_rs::clap::{Arg, ArgMatches, Command};
 use reedline_repl_rs::Repl;
