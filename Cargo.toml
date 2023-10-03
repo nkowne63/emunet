@@ -8,6 +8,6 @@ edition = "2021"
 [dependencies]
 async-openai = "0.14.3"
 dotenvy = "0.15.7"
-inquire = "0.6.2"
 qdrant-client = "1.5.0"
+reedline-repl-rs = { version = "1.0.7", features = ["async"] }
 tokio = { version = "1.32.0", features = ["full"] }

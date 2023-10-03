@@ -1,17 +1,57 @@
 use std::error::Error;
 
 use async_openai::{
-    types::{ChatCompletionRequestMessageArgs, CreateChatCompletionRequestArgs, Role},
+    types::{
+        ChatCompletionRequestMessage, ChatCompletionRequestMessageArgs,
+        CreateChatCompletionRequestArgs, Role,
+    },
     Client,
 };
 
-use inquire::{Select, Text};
-
 use qdrant_client::prelude::*;
-use qdrant_client::qdrant::vectors_config::Config;
-use qdrant_client::qdrant::{
-    Condition, CreateCollection, Filter, SearchPoints, VectorParams, VectorsConfig,
-};
+
+use reedline_repl_rs::clap::{Arg, ArgMatches, Command};
+use reedline_repl_rs::Repl;
+
+#[derive(Default)]
+struct ReplContext {
+    messages: Vec<ChatCompletionRequestMessage>,
+}
+
+async fn chat(
+    args: ArgMatches,
+    context: &mut ReplContext,
+) -> reedline_repl_rs::Result<Option<String>> {
+    let text = args.get_one::<String>("text").unwrap();
+    context.messages.push(
+        ChatCompletionRequestMessageArgs::default()
+            .role(Role::User)
+            .content(text)
+            .build()
+            .unwrap(),
+    );
+    let request = CreateChatCompletionRequestArgs::default()
+        .max_tokens(512u16)
+        .model("gpt-4")
+        .messages(context.messages.clone())
+        .build()
+        .unwrap();
+    let response = Client::new().chat().create(request).await.unwrap();
+    let text = match response.choices[0].message.content.clone() {
+        Some(text) => text,
+        None => {
+            return Ok(Some("AI: No response found, try again.".to_string()));
+        }
+    };
+    context.messages.push(
+        ChatCompletionRequestMessageArgs::default()
+            .role(Role::Assistant)
+            .content(text.clone())
+            .build()
+            .unwrap(),
+    );
+    Ok(Some(format!("AI: {:?}", text)))
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -22,46 +62,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let collections_list = client.list_collections().await?;
     dbg!(collections_list);
 
-    let client = Client::new();
-
-    let mut past_messages = vec![];
-
-    loop {
-        let user_message = Text::new("You: ").prompt()?;
-        past_messages.push(
-            ChatCompletionRequestMessageArgs::default()
-                .role(Role::User)
-                .content(user_message)
-                .build()?,
+    let mut repl = Repl::new(ReplContext { messages: vec![] })
+        .with_name("emunet")
+        .with_version("v0.1.0")
+        .with_description("emulation of human group by llm for high level tasks")
+        .with_command_async(
+            Command::new("chat")
+                .arg(Arg::new("text").required(true))
+                .about("Greetings!"),
+            |args, context| Box::pin(chat(args, context)),
         );
-        let request = CreateChatCompletionRequestArgs::default()
-            .max_tokens(512u16)
-            .model("gpt-4")
-            .messages(past_messages.clone())
-            .build()?;
-        let response = client.chat().create(request).await?;
-        let text = match response.choices[0].message.content.clone() {
-            Some(text) => text,
-            None => {
-                println!("AI: No response found, try again.");
-                continue;
-            }
-        };
-        println!("AI: {:?}", text);
-        past_messages.push(
-            ChatCompletionRequestMessageArgs::default()
-                .role(Role::Assistant)
-                .content(text)
-                .build()?,
-        );
-        let is_done = Select::new("Continue?", vec!["Yes", "No"]).prompt()?;
 
-        match is_done {
-            "Yes" => continue,
-            "No" => break,
-            _ => unreachable!(),
-        }
-    }
+    repl.run_async().await?;
 
     Ok(())
 }
