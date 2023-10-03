@@ -37,7 +37,7 @@ async fn chat(
         .build()
         .unwrap();
     let response = Client::new().chat().create(request).await.unwrap();
-    let text = match response.choices[0].message.content.clone() {
+    let response = match response.choices[0].message.content.clone() {
         Some(text) => text,
         None => {
             return Ok(Some("AI: No response found, try again.".to_string()));
@@ -46,11 +46,14 @@ async fn chat(
     context.messages.push(
         ChatCompletionRequestMessageArgs::default()
             .role(Role::Assistant)
-            .content(text.clone())
+            .content(response.clone())
             .build()
             .unwrap(),
     );
-    Ok(Some(format!("AI: {:?}", text)))
+    // TODO: add text and response to qdrant
+    // first join text and response and pass it to openai ada to get embeddings
+    // then pass embeddings to qdrant
+    Ok(Some(format!("AI: {:?}", response)))
 }
 
 #[tokio::main]
@@ -72,6 +75,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 .about("Greetings!"),
             |args, context| Box::pin(chat(args, context)),
         );
+    // TODO: add retry command which will retry last command with new text and embedding from qdrant
 
     repl.run_async().await?;
 
